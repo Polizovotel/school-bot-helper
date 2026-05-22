@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Школьный Помощник</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Canvas Confetti для анимаций -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--tg-theme-bg-color, #f3f4f6);
+            color: var(--tg-theme-text-color, #1f2937);
+        }
+        .active-tab {
+            color: #3b82f6;
+            border-bottom: 2px solid #3b82f6;
+        }
+        /* Стилизация под тему Telegram */
+        .tg-bg-secondary {
+            background-color: var(--tg-theme-secondary-bg-color, #f9fafb);
+        }
+        .tg-bg-button {
+            background-color: var(--tg-theme-button-color, #3b82f6);
+        }
+        .tg-color-button-text {
+            color: var(--tg-theme-button-text-color, #ffffff);
+        }
+        .custom-card {
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            border: 1px solid var(--tg-theme-secondary-bg-color, #e5e7eb);
+        }
+    </style>
+</head>
+<body class="pb-24 select-none">
+    <div id="app-container" class="max-w-md mx-auto px-4 pt-4">
+        
+        <!-- ХЕДЕР -->
+        <header class="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid fa-graduation-cap text-lg"></i>
+                </div>
+                <div>
+                    <h1 id="user-display-name" class="font-bold text-lg leading-tight">Привет, Ученик!</h1>
+                    <p id="user-class-info" class="text-xs text-gray-500">Лицей №1, 10А Класс</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-semibold">
+                <i class="fa-solid fa-coins text-yellow-500"></i>
+                <span id="user-points">120</span>
+            </div>
+        </header>
+
+        <!-- ВКЛАДКА 1: ДОМАШНЕЕ ЗАДАНИЕ (ГЛАВНАЯ) -->
+        <main id="tab-homework" class="tab-content space-y-4">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-xl font-bold">📚 Расписание & ДЗ</h2>
+                <select id="week-selector" class="text-sm bg-white border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <option value="current">Текущая неделя</option>
+                    <option value="next">Следующая неделя</option>
+                </select>
+            </div>
+
+            <!-- Слайдер дней недели -->
+            <div class="flex space-x-2 overflow-x-auto py-2 scrollbar-none" id="days-slider">
+                <!-- Дни генерятся динамически через JS -->
+            </div>
+
+            <!-- Список уроков на выбранный день -->
+            <div id="homework-list" class="space-y-3 pt-2">
+                <!-- Сюда вставляются карточки ДЗ -->
+            </div>
+        </main>
+
+        <!-- ВКЛАДКА 2: ПОЛЕЗНЫЕ МАТЕРИАЛЫ -->
+        <main id="tab-materials" class="tab-content space-y-4 hidden">
+            <h2 class="text-xl font-bold mb-1">📖 Полезные материалы</h2>
+            <p class="text-xs text-gray-500 -mt-2">Шпаргалки, формулы и памятки, загруженные твоим классом.</p>
+            
+            <!-- Поиск и фильтр -->
+            <div class="relative">
+                <input type="text" id="search-materials" placeholder="Поиск материалов..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-gray-400"></i>
+            </div>
+
+            <!-- Фильтр по предметам -->
+            <div class="flex space-x-1.5 overflow-x-auto py-1" id="materials-filter">
+                <button onclick="filterMaterials('Все')" class="filter-btn active-filter px-3 py-1 rounded-full text-xs font-medium bg-blue-500 text-white">Все</button>
+                <button onclick="filterMaterials('Математика')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">Математика</button>
+                <button onclick="filterMaterials('Физика')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">Физика</button>
+                <button onclick="filterMaterials('Русский язык')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">Русский</button>
+                <button onclick="filterMaterials('История')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">История</button>
+            </div>
+
+            <!-- Список материалов -->
+            <div id="materials-list" class="grid grid-cols-1 gap-3">
+                <!-- Файлы генерятся через JS -->
+            </div>
+        </main>
+
+        <!-- ВКЛАДКА 3: ПРОФИЛЬ / ИГРА -->
+        <main id="tab-game" class="tab-content space-y-4 hidden">
+            <h2 class="text-xl font-bold">🎮 Твой профиль & Игра</h2>
+            
+            <!-- Карточка прогресса -->
+            <div class="custom-card p-5 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+                <div class="flex items-center space-x-4">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-2xl font-bold">
+                        10
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-base">Уровень 10</span>
+                            <span class="text-xs text-gray-500">800 / 1000 XP</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-blue-600 h-2.5 rounded-full" style="width: 80%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ежедневная награда -->
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="text-2xl">🎁</div>
+                        <div>
+                            <h4 class="font-bold text-sm text-blue-900">Ежедневный бонус</h4>
+                            <p class="text-xs text-blue-700">Забери случайную награду!</p>
+                        </div>
+                    </div>
+                    <button onclick="claimDailyReward()" id="claim-btn" class="bg-blue-600 text-white text-xs font-bold px-3 py-2 rounded-lg hover:bg-blue-700 transition">
+                        Забрать
+                    </button>
+                </div>
+            </div>
+
+            <!-- Таблица лидеров -->
+            <div class="custom-card p-4 rounded-2xl shadow-sm border border-gray-200">
+                <h3 class="font-bold text-lg mb-3 flex items-center">
+                    <i class="fa-solid fa-trophy text-yellow-500 mr-2"></i> Топ Лицеистов
+                </h3>
+                <div class="space-y-3" id="leaderboard">
+                    <!-- Заполняется динамически -->
+                </div>
+            </div>
+        </main>
+
+        <!-- ВКЛАДКА 4: АДМИН-ПАНЕЛЬ -->
+        <main id="tab-admin" class="tab-content space-y-4 hidden">
+            <h2 class="text-xl font-bold">🛠️ Панель Администратора</h2>
+            
+            <!-- Форма добавления ДЗ -->
+            <div class="custom-card p-4 rounded-2xl border border-gray-200 space-y-3">
+                <h3 class="font-bold text-md text-gray-700"><i class="fa-solid fa-plus-circle text-blue-500 mr-1.5"></i> Добавить домашнее задание</h3>
+                <form id="add-hw-form" class="space-y-3" onsubmit="event.preventDefault(); submitHW();">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Предмет</label>
+                        <select id="hw-subject" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                            <option>Математика</option>
+                            <option>Русский язык</option>
+                            <option>История</option>
+                            <option>Физика</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Дата</label>
+                            <input type="date" id="hw-date" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Фото (необязательно)</label>
+                            <input type="file" id="hw-photo" class="w-full p-1 border border-gray-300 rounded-lg text-xs">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Текст задания</label>
+                        <textarea id="hw-text" rows="3" placeholder="Что задали по предмету..." class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"></textarea>
+                    </div>
+                    <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-blue-700 transition">
+                        Сохранить ДЗ
+                    </button>
+                </form>
+            </div>
+
+            <!-- Форма добавления Памяток -->
+            <div class="custom-card p-4 rounded-2xl border border-gray-200 space-y-3">
+                <h3 class="font-bold text-md text-gray-700"><i class="fa-solid fa-file-arrow-up text-purple-500 mr-1.5"></i> Загрузить шпаргалку/памятку</h3>
+                <form id="add-material-form" class="space-y-3" onsubmit="event.preventDefault(); submitMaterial();">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Предмет</label>
+                        <select id="mat-subject" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                            <option>Математика</option>
+                            <option>Физика</option>
+                            <option>Русский язык</option>
+                            <option>История</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Название памятки/файла</label>
+                        <input type="text" id="mat-name" placeholder="Пример: Формулы тригонометрии" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Файл памятки</label>
+                        <input type="file" id="mat-file" class="w-full p-1 border border-gray-300 rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Краткое описание</label>
+                        <input type="text" id="mat-desc" placeholder="Для чего этот файл..." class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <button type="submit" class="w-full py-2 bg-purple-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-purple-700 transition">
+                        Загрузить файл
+                    </button>
+                </form>
+            </div>
+        </main>
+
+        <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-2.5 px-6 shadow-lg z-50">
+            <div class="max-w-md mx-auto flex justify-between items-center">
+                <button onclick="switchTab('homework')" id="nav-homework" class="flex flex-col items-center space-y-1 text-gray-400 active-tab transition">
+                    <i class="fa-solid fa-house text-lg"></i>
+                    <span class="text-[10px] font-semibold">Главная</span>
+                </button>
+                <button onclick="switchTab('materials')" id="nav-materials" class="flex flex-col items-center space-y-1 text-gray-400 transition">
+                    <i class="fa-solid fa-folder-open text-lg"></i>
+                    <span class="text-[10px] font-semibold">Памятки</span>
+                </button>
+                <button onclick="switchTab('game')" id="nav-game" class="flex flex-col items-center space-y-1 text-gray-400 transition">
+                    <i class="fa-solid fa-gamepad text-lg"></i>
+                    <span class="text-[10px] font-semibold">Игра</span>
+                </button>
+                <button onclick="switchTab('admin')" id="nav-admin" class="flex flex-col items-center space-y-1 text-gray-400 transition">
+                    <i class="fa-solid fa-sliders text-lg"></i>
+                    <span class="text-[10px] font-semibold">Админка</span>
+                </button>
+            </div>
+        </nav>
+
+    </div>
+
+    <!-- JavaScript Логика -->
+    <script>
+        // Инициализация Telegram Web App
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+            // Подгружаем имя и аватар из Telegram
+            const user = tg.initDataUnsafe?.user;
+            if (user) {
+                document.getElementById('user-display-name').textContent = `Привет, ${user.first_name || 'Ученик'}!`;
+            }
+        }
+
+        // --- ДЕМО ДАННЫЕ ДЛЯ ТЕСТИРОВАНИЯ ---
+        const MOCK_DATA = {
+            subjects: ["Математика", "Русский язык", "История", "Физика"],
+            homework: {
+                "2026-05-21": {
+                    "Математика": { text: "Решить задачи №254, №256 на стр. 112", photos: [] },
+                    "Русский язык": { text: "Упражнение №45, выучить правила деепричастий", photos: [] }
+                },
+                "2026-05-22": {
+                    "Физика": { text: "Лабораторная работа по механике газов", photos: [] },
+                    "История": { text: "Параграф 14, составить таблицу дат", photos: [] }
+                }
+            },
+            materials: [
+                { name: "Формулы тригонометрии", subject: "Математика", description: "Полный список формул для ЕГЭ и КР", size: "240 КБ" },
+                { name: "Памятка по механике", subject: "Физика", description: "Все законы Ньютона и формулы кинематики", size: "1.2 МБ" },
+                { name: "Деепричастные обороты", subject: "Русский язык", description: "Правила обособления с примерами", size: "115 КБ" },
+                { name: "Реформы Петра I", subject: "История", description: "Таблица реформ и дат правления", size: "310 КБ" }
+            ],
+            leaderboard: [
+                { name: "Миша Котов", points: 420, rank: 1, avatar: "🐈" },
+                { name: "Ты", points: 120, rank: 2, avatar: "😎" },
+                { name: "Маша Иванова", points: 95, rank: 3, avatar: "🌸" },
+                { name: "Артем Петров", points: 70, rank: 4, avatar: "⚡" }
+            ]
+        };
+
+        let currentSelectedDay = "2026-05-21";
+
+        // --- ИНИЦИАЛИЗАЦИЯ ПРИ ЗАПУСКЕ ---
+        window.addEventListener('load', () => {
+            renderDaysSlider();
+            selectDay(currentSelectedDay);
+            renderMaterials(MOCK_DATA.materials);
+            renderLeaderboard();
+        });
+
+        // --- ВКЛАДКИ ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            
+            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active-tab'));
+            document.getElementById(`nav-${navIdMap(tabId)}`).classList.add('active-tab');
+        }
+
+        function navIdMap(tabId) {
+            return tabId;
+        }
+
+        // --- ДНИ НЕДЕЛИ ---
+        function renderDaysSlider() {
+            const container = document.getElementById('days-slider');
+            container.innerHTML = '';
+            
+            const days = [
+                { date: "2026-05-18", name: "Пн", active: false },
+                { date: "2026-05-19", name: "Вт", active: false },
+                { date: "2026-05-20", name: "Ср", active: false },
+                { date: "2026-05-21", name: "Чт", active: true },
+                { date: "2026-05-22", name: "Пт", active: false },
+                { date: "2026-05-23", name: "Сб", active: false }
+            ];
+
+            days.forEach(day => {
+                const btn = document.createElement('button');
+                btn.id = `day-btn-${day.date}`;
+                btn.className = `flex-shrink-0 flex flex-col items-center justify-center w-12 h-14 rounded-xl transition ${
+                    day.date === currentSelectedDay 
+                    ? 'bg-blue-500 text-white shadow-md' 
+                    : 'bg-white text-gray-700 border border-gray-200'
+                }`;
+                btn.onclick = () => selectDay(day.date);
+                btn.innerHTML = `
+                    <span class="text-[10px] uppercase font-bold opacity-80">${day.name}</span>
+                    <span class="text-sm font-extrabold mt-0.5">${day.date.split('-')[2]}</span>
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        function selectDay(dateStr) {
+            // Снимаем выделение со старой кнопки
+            const prevBtn = document.getElementById(`day-btn-${currentSelectedDay}`);
+            if (prevBtn) {
+                prevBtn.className = "flex-shrink-0 flex flex-col items-center justify-center w-12 h-14 rounded-xl bg-white text-gray-700 border border-gray-200 transition";
+            }
+            
+            currentSelectedDay = dateStr;
+            
+            // Выделяем новую кнопку
+            const activeBtn = document.getElementById(`day-btn-${dateStr}`);
+            if (activeBtn) {
+                activeBtn.className = "flex-shrink-0 flex flex-col items-center justify-center w-12 h-14 rounded-xl bg-blue-500 text-white shadow-md transition";
+            }
+
+            renderHomeworkList(dateStr);
+        }
+
+        // --- СПИСОК ДЗ ---
+        function renderHomeworkList(dateStr) {
+            const listContainer = document.getElementById('homework-list');
+            listContainer.innerHTML = '';
+
+            const dayHw = MOCK_DATA.homework[dateStr] || {};
+            const activeSubjects = Object.keys(dayHw);
+
+            if (activeSubjects.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="text-center py-10 bg-white border border-dashed border-gray-300 rounded-2xl">
+                        <span class="text-3xl">🎉</span>
+                        <h4 class="font-bold text-gray-700 mt-2">Ничего не задано!</h4>
+                        <p class="text-xs text-gray-400">Отдыхайте или повторите пройденный материал.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            activeSubjects.forEach(subject => {
+                const item = dayHw[subject];
+                const card = document.createElement('div');
+                card.className = "custom-card p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col space-y-2";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                        <span class="font-bold text-blue-600 text-sm">${subject}</span>
+                        <span class="text-[10px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-bold">ДЗ</span>
+                    </div>
+                    <p class="text-sm text-gray-700 leading-relaxed">${item.text}</p>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        // --- МАТЕРИАЛЫ ---
+        function renderMaterials(items) {
+            const list = document.getElementById('materials-list');
+            list.innerHTML = '';
+
+            if (items.length === 0) {
+                list.innerHTML = `
+                    <p class="text-center py-6 text-sm text-gray-400">Материалы по запросу не найдены.</p>
+                `;
+                return;
+            }
+
+            items.forEach(material => {
+                const card = document.createElement('div');
+                card.className = "custom-card p-4 rounded-xl border border-gray-200 flex items-center justify-between";
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-file-pdf"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-sm leading-snug">${material.name}</h4>
+                            <p class="text-xs text-gray-400">${material.subject} • ${material.size}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">${material.description}</p>
+                        </div>
+                    </div>
+                    <button onclick="downloadFileAlert('${material.name}')" class="w-8 h-8 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full flex items-center justify-center transition">
+                        <i class="fa-solid fa-download text-xs"></i>
+                    </button>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function filterMaterials(subject) {
+            // Обновляем активный фильтр визуально
+            document.querySelectorAll('#materials-filter button').forEach(btn => {
+                btn.className = "px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700";
+            });
+            event.target.className = "px-3 py-1 rounded-full text-xs font-medium bg-blue-500 text-white";
+
+            if (subject === 'Все') {
+                renderMaterials(MOCK_DATA.materials);
+            } else {
+                const filtered = MOCK_DATA.materials.filter(m => m.subject === subject);
+                renderMaterials(filtered);
+            }
+        }
+
+        // Поиск по названию
+        document.getElementById('search-materials').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = MOCK_DATA.materials.filter(m => m.name.toLowerCase().includes(query) || m.description.toLowerCase().includes(query));
+            renderMaterials(filtered);
+        });
+
+        // Имитация скачивания
+        function downloadFileAlert(fileName) {
+            tg?.showPopup({
+                title: "Скачивание файла",
+                message: `Хочешь скачать памятку «${fileName}» на своё устройство?`,
+                buttons: [
+                    { id: "ok", type: "default", text: "Да, скачать" },
+                    { id: "cancel", type: "cancel", text: "Отмена" }
+                ]
+            }, (btnId) => {
+                if (btnId === "ok") {
+                    tg?.showAlert("Файл успешно скачан в твои загрузки! 🎉");
+                }
+            });
+        }
+
+        // --- ЛИДЕРБОРД ---
+        function renderLeaderboard() {
+            const container = document.getElementById('leaderboard');
+            container.innerHTML = '';
+
+            MOCK_DATA.leaderboard.forEach(user => {
+                const card = document.createElement('div');
+                card.className = "flex items-center justify-between py-2 border-b border-gray-100 last:border-0";
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="w-5 text-center text-sm font-bold text-gray-400">${user.rank}</span>
+                        <span class="text-xl">${user.avatar}</span>
+                        <span class="font-semibold text-sm ${user.name === 'Ты' ? 'text-blue-600 font-bold' : ''}">${user.name}</span>
+                    </div>
+                    <span class="text-sm font-bold">${user.points} 💰</span>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // --- ЕЖЕДНЕВНЫЙ БОНУС ---
+        function claimDailyReward() {
+            const btn = document.getElementById('claim-btn');
+            btn.disabled = true;
+            btn.className = "bg-gray-300 text-gray-500 text-xs font-bold px-3 py-2 rounded-lg cursor-not-allowed";
+            btn.textContent = "Забрано";
+
+            // Добавляем очки нашему пользователю
+            const addedPoints = Math.floor(Math.random() * 15) + 5;
+            const pointsEl = document.getElementById('user-points');
+            const currentPoints = parseInt(pointsEl.textContent);
+            pointsEl.textContent = currentPoints + addedPoints;
+
+            // Салют конфетти
+            confetti({
+                particleCount: 120,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+
+            tg?.showAlert(`Поздравляем! Ты получил бонус в размере +${addedPoints} очков! 💰`);
+        }
+
+        // --- ОТПРАВКА ДАННЫХ АДМИНОМ ---
+        function submitHW() {
+            const subject = document.getElementById('hw-subject').value;
+            const date = document.getElementById('hw-date').value;
+            const text = document.getElementById('hw-text').value;
+
+            if (!date || !text) {
+                tg?.showAlert("Пожалуйста, заполните все обязательные поля!");
+                return;
+            }
+
+            if (!MOCK_DATA.homework[date]) {
+                MOCK_DATA.homework[date] = {};
+            }
+            MOCK_DATA.homework[date][subject] = { text: text, photos: [] };
+
+            tg?.showAlert(`Задание по предмету «${subject}» на ${date} успешно сохранено!`);
+            document.getElementById('add-hw-form').reset();
+            selectDay(currentSelectedDay); // Обновляем экран
+        }
+
+        function submitMaterial() {
+            const subject = document.getElementById('mat-subject').value;
+            const name = document.getElementById('mat-name').value;
+            const desc = document.getElementById('mat-desc').value || "Без описания";
+
+            if (!name) {
+                tg?.showAlert("Пожалуйста, укажите имя загружаемой памятки!");
+                return;
+            }
+
+            MOCK_DATA.materials.push({
+                name: name,
+                subject: subject,
+                description: desc,
+                size: "450 КБ"
+            });
+
+            tg?.showAlert(`Файл «${name}» успешно загружен в библиотеку материалов класса!`);
+            document.getElementById('add-material-form').reset();
+            renderMaterials(MOCK_DATA.materials); // Обновляем экран
+        }
+    </script>
+</body>
+</html>
