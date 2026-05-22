@@ -2,555 +2,1441 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Школьный Помощник</title>
-    <!-- Tailwind CSS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Звёздный Защитник — Космическая Аркада</title>
+    <!-- Tailwind CSS для стилизации интерфейса -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts & FontAwesome -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Telegram Web App SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Canvas Confetti для анимаций -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    
+    <!-- Иконки Lucide для интерфейса -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Montserrat:wght@300;400;600&display=swap');
+        
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--tg-theme-bg-color, #f3f4f6);
-            color: var(--tg-theme-text-color, #1f2937);
+            font-family: 'Montserrat', sans-serif;
+            background-color: #03000a;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
         }
-        .active-tab {
-            color: #3b82f6;
-            border-bottom: 2px solid #3b82f6;
+        
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
         }
-        /* Стилизация под тему Telegram */
-        .tg-bg-secondary {
-            background-color: var(--tg-theme-secondary-bg-color, #f9fafb);
+
+        /* Анимация неонового свечения */
+        .neon-glow {
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.6), 0 0 20px rgba(168, 85, 247, 0.4);
         }
-        .tg-bg-button {
-            background-color: var(--tg-theme-button-color, #3b82f6);
+        
+        .neon-glow-blue {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.6), 0 0 20px rgba(59, 130, 246, 0.4);
         }
-        .tg-color-button-text {
-            color: var(--tg-theme-button-text-color, #ffffff);
+
+        /* Стилизация полосы прокрутки для меню улучшения */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
         }
-        .custom-card {
-            background-color: var(--tg-theme-bg-color, #ffffff);
-            border: 1px solid var(--tg-theme-secondary-bg-color, #e5e7eb);
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(31, 41, 55, 0.5);
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(168, 85, 247, 0.5);
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(168, 85, 247, 0.8);
         }
     </style>
 </head>
-<body class="pb-24 select-none">
-    <div id="app-container" class="max-w-md mx-auto px-4 pt-4">
+<body class="w-screen h-screen flex items-center justify-center text-white select-none">
+
+    <!-- Игровой холст (Canvas) -->
+    <canvas id="gameCanvas" class="absolute top-0 left-0 w-full h-full block z-0"></canvas>
+
+    <!-- Основной контейнер интерфейса -->
+    <div id="uiContainer" class="absolute inset-0 flex flex-col justify-between p-4 pointer-events-none z-10 font-orbitron">
         
-        <!-- ХЕДЕР -->
-        <header class="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white shadow-md">
-                    <i class="fa-solid fa-graduation-cap text-lg"></i>
+        <!-- Верхняя панель: Здоровье, Очки, Кристаллы -->
+        <div id="topPanel" class="flex justify-between items-center w-full max-w-5xl mx-auto opacity-0 transition-opacity duration-500">
+            <!-- Здоровье и Щит -->
+            <div class="flex flex-col gap-2 bg-black/40 backdrop-blur-md p-3 rounded-xl border border-purple-500/30 w-48 sm:w-64 pointer-events-auto">
+                <div class="flex items-center justify-between text-xs sm:text-sm">
+                    <span class="flex items-center gap-1 text-red-400"><i data-lucide="heart" class="w-4 h-4 fill-current"></i> КОРПУС</span>
+                    <span id="hpText" class="font-bold">100/100</span>
                 </div>
-                <div>
-                    <h1 id="user-display-name" class="font-bold text-lg leading-tight">Привет, Ученик!</h1>
-                    <p id="user-class-info" class="text-xs text-gray-500">Лицей №1, 10А Класс</p>
-                </div>
-            </div>
-            <div class="flex items-center space-x-2 bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-semibold">
-                <i class="fa-solid fa-coins text-yellow-500"></i>
-                <span id="user-points">120</span>
-            </div>
-        </header>
-
-        <!-- ВКЛАДКА 1: ДОМАШНЕЕ ЗАДАНИЕ (ГЛАВНАЯ) -->
-        <main id="tab-homework" class="tab-content space-y-4">
-            <div class="flex justify-between items-center mb-2">
-                <h2 class="text-xl font-bold">📚 Расписание & ДЗ</h2>
-                <select id="week-selector" class="text-sm bg-white border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option value="current">Текущая неделя</option>
-                    <option value="next">Следующая неделя</option>
-                </select>
-            </div>
-
-            <!-- Слайдер дней недели -->
-            <div class="flex space-x-2 overflow-x-auto py-2 scrollbar-none" id="days-slider">
-                <!-- Дни генерятся динамически через JS -->
-            </div>
-
-            <!-- Список уроков на выбранный день -->
-            <div id="homework-list" class="space-y-3 pt-2">
-                <!-- Сюда вставляются карточки ДЗ -->
-            </div>
-        </main>
-
-        <!-- ВКЛАДКА 2: ПОЛЕЗНЫЕ МАТЕРИАЛЫ -->
-        <main id="tab-materials" class="tab-content space-y-4 hidden">
-            <h2 class="text-xl font-bold mb-1">📖 Полезные материалы</h2>
-            <p class="text-xs text-gray-500 -mt-2">Шпаргалки, формулы и памятки, загруженные твоим классом.</p>
-            
-            <!-- Поиск и фильтр -->
-            <div class="relative">
-                <input type="text" id="search-materials" placeholder="Поиск материалов..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-gray-400"></i>
-            </div>
-
-            <!-- Фильтр по предметам -->
-            <div class="flex space-x-1.5 overflow-x-auto py-1" id="materials-filter">
-                <button onclick="filterMaterials('Все')" class="filter-btn active-filter px-3 py-1 rounded-full text-xs font-medium bg-blue-500 text-white">Все</button>
-                <button onclick="filterMaterials('Математика')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">Математика</button>
-                <button onclick="filterMaterials('Физика')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">Физика</button>
-                <button onclick="filterMaterials('Русский язык')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">Русский</button>
-                <button onclick="filterMaterials('История')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">История</button>
-            </div>
-
-            <!-- Список материалов -->
-            <div id="materials-list" class="grid grid-cols-1 gap-3">
-                <!-- Файлы генерятся через JS -->
-            </div>
-        </main>
-
-        <!-- ВКЛАДКА 3: ПРОФИЛЬ / ИГРА -->
-        <main id="tab-game" class="tab-content space-y-4 hidden">
-            <h2 class="text-xl font-bold">🎮 Твой профиль & Игра</h2>
-            
-            <!-- Карточка прогресса -->
-            <div class="custom-card p-5 rounded-2xl shadow-sm border border-gray-200 space-y-4">
-                <div class="flex items-center space-x-4">
-                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-2xl font-bold">
-                        10
-                    </div>
-                    <div class="flex-1">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="font-bold text-base">Уровень 10</span>
-                            <span class="text-xs text-gray-500">800 / 1000 XP</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div class="bg-blue-600 h-2.5 rounded-full" style="width: 80%"></div>
-                        </div>
-                    </div>
+                <div class="w-full bg-gray-900 h-2.5 rounded-full overflow-hidden">
+                    <div id="hpBar" class="bg-gradient-to-r from-red-600 to-pink-500 h-full w-full transition-all duration-100"></div>
                 </div>
 
-                <!-- Ежедневная награда -->
-                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
-                    <div class="flex items-center space-x-3">
-                        <div class="text-2xl">🎁</div>
-                        <div>
-                            <h4 class="font-bold text-sm text-blue-900">Ежедневный бонус</h4>
-                            <p class="text-xs text-blue-700">Забери случайную награду!</p>
-                        </div>
-                    </div>
-                    <button onclick="claimDailyReward()" id="claim-btn" class="bg-blue-600 text-white text-xs font-bold px-3 py-2 rounded-lg hover:bg-blue-700 transition">
-                        Забрать
-                    </button>
+                <div class="flex items-center justify-between text-xs sm:text-sm mt-1">
+                    <span class="flex items-center gap-1 text-blue-400"><i data-lucide="shield" class="w-4 h-4 fill-current"></i> ЩИТ</span>
+                    <span id="shieldText" class="font-bold">50/50</span>
+                </div>
+                <div class="w-full bg-gray-900 h-2.5 rounded-full overflow-hidden">
+                    <div id="shieldBar" class="bg-gradient-to-r from-blue-600 to-cyan-400 h-full w-full transition-all duration-100"></div>
                 </div>
             </div>
 
-            <!-- Таблица лидеров -->
-            <div class="custom-card p-4 rounded-2xl shadow-sm border border-gray-200">
-                <h3 class="font-bold text-lg mb-3 flex items-center">
-                    <i class="fa-solid fa-trophy text-yellow-500 mr-2"></i> Топ Лицеистов
-                </h3>
-                <div class="space-y-3" id="leaderboard">
-                    <!-- Заполняется динамически -->
+            <!-- Счет и Кристаллы -->
+            <div class="flex flex-col items-end gap-1 bg-black/40 backdrop-blur-md p-3 rounded-xl border border-purple-500/30 pointer-events-auto min-w-[120px] sm:min-w-[180px]">
+                <div class="text-xs text-purple-300">СЧЕТ</div>
+                <div id="scoreVal" class="text-lg sm:text-2xl font-black text-white neon-glow">000000</div>
+                <div class="flex items-center gap-1 text-yellow-400 text-xs sm:text-sm mt-1 font-bold">
+                    <i data-lucide="gem" class="w-4 h-4 fill-current animate-pulse"></i>
+                    <span id="crystalsVal">0</span>
                 </div>
             </div>
-        </main>
+        </div>
 
-        <!-- ВКЛАДКА 4: АДМИН-ПАНЕЛЬ -->
-        <main id="tab-admin" class="tab-content space-y-4 hidden">
-            <h2 class="text-xl font-bold">🛠️ Панель Администратора</h2>
-            
-            <!-- Форма добавления ДЗ -->
-            <div class="custom-card p-4 rounded-2xl border border-gray-200 space-y-3">
-                <h3 class="font-bold text-md text-gray-700"><i class="fa-solid fa-plus-circle text-blue-500 mr-1.5"></i> Добавить домашнее задание</h3>
-                <form id="add-hw-form" class="space-y-3" onsubmit="event.preventDefault(); submitHW();">
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">Предмет</label>
-                        <select id="hw-subject" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
-                            <option>Математика</option>
-                            <option>Русский язык</option>
-                            <option>История</option>
-                            <option>Физика</option>
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-1">Дата</label>
-                            <input type="date" id="hw-date" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-1">Фото (необязательно)</label>
-                            <input type="file" id="hw-photo" class="w-full p-1 border border-gray-300 rounded-lg text-xs">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">Текст задания</label>
-                        <textarea id="hw-text" rows="3" placeholder="Что задали по предмету..." class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"></textarea>
-                    </div>
-                    <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-blue-700 transition">
-                        Сохранить ДЗ
-                    </button>
-                </form>
+        <!-- Нижняя панель (Для мобилок: джойстик и кнопка огня появятся динамически, если устройство сенсорное) -->
+        <div id="mobileControls" class="w-full flex justify-between items-end max-w-5xl mx-auto mb-4 pointer-events-auto hidden">
+            <!-- Виртуальный джойстик (зона тача слева) -->
+            <div id="joystickZone" class="w-28 h-28 sm:w-36 sm:h-36 bg-white/5 border border-white/20 rounded-full relative flex items-center justify-center backdrop-blur-sm">
+                <div id="joystickKnob" class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-tr from-purple-600 to-pink-500 rounded-full shadow-lg shadow-purple-500/40 absolute transition-all duration-75"></div>
             </div>
-
-            <!-- Форма добавления Памяток -->
-            <div class="custom-card p-4 rounded-2xl border border-gray-200 space-y-3">
-                <h3 class="font-bold text-md text-gray-700"><i class="fa-solid fa-file-arrow-up text-purple-500 mr-1.5"></i> Загрузить шпаргалку/памятку</h3>
-                <form id="add-material-form" class="space-y-3" onsubmit="event.preventDefault(); submitMaterial();">
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">Предмет</label>
-                        <select id="mat-subject" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
-                            <option>Математика</option>
-                            <option>Физика</option>
-                            <option>Русский язык</option>
-                            <option>История</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">Название памятки/файла</label>
-                        <input type="text" id="mat-name" placeholder="Пример: Формулы тригонометрии" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">Файл памятки</label>
-                        <input type="file" id="mat-file" class="w-full p-1 border border-gray-300 rounded-lg text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">Краткое описание</label>
-                        <input type="text" id="mat-desc" placeholder="Для чего этот файл..." class="w-full p-2 border border-gray-300 rounded-lg text-sm">
-                    </div>
-                    <button type="submit" class="w-full py-2 bg-purple-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-purple-700 transition">
-                        Загрузить файл
-                    </button>
-                </form>
-            </div>
-        </main>
-
-        <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
-        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-2.5 px-6 shadow-lg z-50">
-            <div class="max-w-md mx-auto flex justify-between items-center">
-                <button onclick="switchTab('homework')" id="nav-homework" class="flex flex-col items-center space-y-1 text-gray-400 active-tab transition">
-                    <i class="fa-solid fa-house text-lg"></i>
-                    <span class="text-[10px] font-semibold">Главная</span>
-                </button>
-                <button onclick="switchTab('materials')" id="nav-materials" class="flex flex-col items-center space-y-1 text-gray-400 transition">
-                    <i class="fa-solid fa-folder-open text-lg"></i>
-                    <span class="text-[10px] font-semibold">Памятки</span>
-                </button>
-                <button onclick="switchTab('game')" id="nav-game" class="flex flex-col items-center space-y-1 text-gray-400 transition">
-                    <i class="fa-solid fa-gamepad text-lg"></i>
-                    <span class="text-[10px] font-semibold">Игра</span>
-                </button>
-                <button onclick="switchTab('admin')" id="nav-admin" class="flex flex-col items-center space-y-1 text-gray-400 transition">
-                    <i class="fa-solid fa-sliders text-lg"></i>
-                    <span class="text-[10px] font-semibold">Админка</span>
-                </button>
-            </div>
-        </nav>
-
+            <!-- Кнопка автострельбы/активного огня -->
+            <button id="fireButton" class="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-tr from-red-600 to-orange-500 active:from-red-700 active:to-orange-600 rounded-full border border-white/30 flex flex-col items-center justify-center gap-1 shadow-lg shadow-red-500/30">
+                <i data-lucide="zap" class="w-8 h-8 text-white fill-current"></i>
+                <span class="text-[10px] font-bold">ОГОНЬ</span>
+            </button>
+        </div>
     </div>
 
-    <!-- JavaScript Логика -->
-    <script>
-        // Инициализация Telegram Web App
-        const tg = window.Telegram?.WebApp;
-        if (tg) {
-            tg.ready();
-            tg.expand();
-            // Подгружаем имя и аватар из Telegram
-            const user = tg.initDataUnsafe?.user;
-            if (user) {
-                document.getElementById('user-display-name').textContent = `Привет, ${user.first_name || 'Ученик'}!`;
-            }
-        }
+    <!-- МЕНЮ: Главный экран -->
+    <div id="mainMenu" class="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-4 z-20 transition-all duration-500">
+        <div class="text-center max-w-md w-full">
+            <h1 class="text-4xl sm:text-6xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-blue-500 font-orbitron neon-glow mb-2">
+                ЗВЁЗДНЫЙ
+            </h1>
+            <h2 class="text-2xl sm:text-3xl font-bold tracking-widest text-blue-400 font-orbitron neon-glow-blue mb-8">
+                ЗАЩИТНИК
+            </h2>
 
-        // --- ДЕМО ДАННЫЕ ДЛЯ ТЕСТИРОВАНИЯ ---
-        const MOCK_DATA = {
-            subjects: ["Математика", "Русский язык", "История", "Физика"],
-            homework: {
-                "2026-05-21": {
-                    "Математика": { text: "Решить задачи №254, №256 на стр. 112", photos: [] },
-                    "Русский язык": { text: "Упражнение №45, выучить правила деепричастий", photos: [] }
-                },
-                "2026-05-22": {
-                    "Физика": { text: "Лабораторная работа по механике газов", photos: [] },
-                    "История": { text: "Параграф 14, составить таблицу дат", photos: [] }
-                }
-            },
-            materials: [
-                { name: "Формулы тригонометрии", subject: "Математика", description: "Полный список формул для ЕГЭ и КР", size: "240 КБ" },
-                { name: "Памятка по механике", subject: "Физика", description: "Все законы Ньютона и формулы кинематики", size: "1.2 МБ" },
-                { name: "Деепричастные обороты", subject: "Русский язык", description: "Правила обособления с примерами", size: "115 КБ" },
-                { name: "Реформы Петра I", subject: "История", description: "Таблица реформ и дат правления", size: "310 КБ" }
-            ],
-            leaderboard: [
-                { name: "Миша Котов", points: 420, rank: 1, avatar: "🐈" },
-                { name: "Ты", points: 120, rank: 2, avatar: "😎" },
-                { name: "Маша Иванова", points: 95, rank: 3, avatar: "🌸" },
-                { name: "Артем Петров", points: 70, rank: 4, avatar: "⚡" }
-            ]
-        };
+            <div class="space-y-4 mb-8">
+                <button id="btnStart" class="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 font-orbitron font-bold text-lg rounded-xl border border-purple-400/30 shadow-lg shadow-purple-500/20 transform hover:-translate-y-0.5 active:translate-y-0 transition-all">
+                    НАЧАТЬ БИТВУ
+                </button>
+                
+                <button id="btnUpgrades" class="w-full py-3 bg-gray-900/80 hover:bg-gray-800/80 font-orbitron font-bold text-md rounded-xl border border-gray-700 hover:border-purple-500/50 transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="wrench" class="w-5 h-5 text-purple-400"></i> АНГАР / УЛУЧШЕНИЯ
+                </button>
 
-        let currentSelectedDay = "2026-05-21";
+                <button id="btnMute" class="w-full py-2 bg-gray-900/50 hover:bg-gray-800/50 text-xs text-gray-400 rounded-lg border border-gray-800 transition-all flex items-center justify-center gap-2">
+                    <i id="muteIcon" data-lucide="volume-2" class="w-4 h-4"></i>
+                    <span id="muteText">ЗВУК: ВКЛ</span>
+                </button>
+            </div>
 
-        // --- ИНИЦИАЛИЗАЦИЯ ПРИ ЗАПУСКЕ ---
-        window.addEventListener('load', () => {
-            renderDaysSlider();
-            selectDay(currentSelectedDay);
-            renderMaterials(MOCK_DATA.materials);
-            renderLeaderboard();
-        });
+            <div class="bg-purple-950/20 border border-purple-500/20 rounded-xl p-4 text-xs sm:text-sm text-gray-300 space-y-2 text-left font-sans">
+                <div class="font-bold text-purple-400 font-orbitron mb-1 text-center">УПРАВЛЕНИЕ:</div>
+                <div class="flex justify-between"><span>Мышь / Тач:</span> <span class="text-white">Движение корабля</span></div>
+                <div class="flex justify-between"><span>ЛКМ / Пробел:</span> <span class="text-white">Стрельба</span></div>
+                <div class="flex justify-between"><span>Клавиши WASD/Стрелки:</span> <span class="text-white">Альтернативное движение</span></div>
+            </div>
 
-        // --- ВКЛАДКИ ---
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            <!-- Лучший счет -->
+            <div class="mt-6 text-sm text-gray-400 font-orbitron">
+                РЕКОРД: <span id="highScoreText" class="text-yellow-400 font-bold">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- МЕНЮ: Магазин Улучшений (Ангар) -->
+    <div id="upgradeMenu" class="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 z-25 hidden transition-all duration-500">
+        <div class="max-w-md w-full bg-gray-950/90 border border-purple-500/30 rounded-2xl p-6 flex flex-col max-h-[90vh]">
             
-            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active-tab'));
-            document.getElementById(`nav-${navIdMap(tabId)}`).classList.add('active-tab');
-        }
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl sm:text-2xl font-bold font-orbitron text-purple-400">АНГАР МОДЕРНИЗАЦИИ</h3>
+                <!-- Кристаллы -->
+                <div class="flex items-center gap-1 text-yellow-400 font-orbitron font-bold bg-yellow-400/10 px-3 py-1 rounded-full border border-yellow-400/20">
+                    <i data-lucide="gem" class="w-4 h-4 fill-current"></i>
+                    <span id="shopCrystalsVal">0</span>
+                </div>
+            </div>
 
-        function navIdMap(tabId) {
-            return tabId;
-        }
-
-        // --- ДНИ НЕДЕЛИ ---
-        function renderDaysSlider() {
-            const container = document.getElementById('days-slider');
-            container.innerHTML = '';
-            
-            const days = [
-                { date: "2026-05-18", name: "Пн", active: false },
-                { date: "2026-05-19", name: "Вт", active: false },
-                { date: "2026-05-20", name: "Ср", active: false },
-                { date: "2026-05-21", name: "Чт", active: true },
-                { date: "2026-05-22", name: "Пт", active: false },
-                { date: "2026-05-23", name: "Сб", active: false }
-            ];
-
-            days.forEach(day => {
-                const btn = document.createElement('button');
-                btn.id = `day-btn-${day.date}`;
-                btn.className = `flex-shrink-0 flex flex-col items-center justify-center w-12 h-14 rounded-xl transition ${
-                    day.date === currentSelectedDay 
-                    ? 'bg-blue-500 text-white shadow-md' 
-                    : 'bg-white text-gray-700 border border-gray-200'
-                }`;
-                btn.onclick = () => selectDay(day.date);
-                btn.innerHTML = `
-                    <span class="text-[10px] uppercase font-bold opacity-80">${day.name}</span>
-                    <span class="text-sm font-extrabold mt-0.5">${day.date.split('-')[2]}</span>
-                `;
-                container.appendChild(btn);
-            });
-        }
-
-        function selectDay(dateStr) {
-            // Снимаем выделение со старой кнопки
-            const prevBtn = document.getElementById(`day-btn-${currentSelectedDay}`);
-            if (prevBtn) {
-                prevBtn.className = "flex-shrink-0 flex flex-col items-center justify-center w-12 h-14 rounded-xl bg-white text-gray-700 border border-gray-200 transition";
-            }
-            
-            currentSelectedDay = dateStr;
-            
-            // Выделяем новую кнопку
-            const activeBtn = document.getElementById(`day-btn-${dateStr}`);
-            if (activeBtn) {
-                activeBtn.className = "flex-shrink-0 flex flex-col items-center justify-center w-12 h-14 rounded-xl bg-blue-500 text-white shadow-md transition";
-            }
-
-            renderHomeworkList(dateStr);
-        }
-
-        // --- СПИСОК ДЗ ---
-        function renderHomeworkList(dateStr) {
-            const listContainer = document.getElementById('homework-list');
-            listContainer.innerHTML = '';
-
-            const dayHw = MOCK_DATA.homework[dateStr] || {};
-            const activeSubjects = Object.keys(dayHw);
-
-            if (activeSubjects.length === 0) {
-                listContainer.innerHTML = `
-                    <div class="text-center py-10 bg-white border border-dashed border-gray-300 rounded-2xl">
-                        <span class="text-3xl">🎉</span>
-                        <h4 class="font-bold text-gray-700 mt-2">Ничего не задано!</h4>
-                        <p class="text-xs text-gray-400">Отдыхайте или повторите пройденный материал.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            activeSubjects.forEach(subject => {
-                const item = dayHw[subject];
-                const card = document.createElement('div');
-                card.className = "custom-card p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col space-y-2";
-                card.innerHTML = `
-                    <div class="flex justify-between items-center border-b border-gray-100 pb-2">
-                        <span class="font-bold text-blue-600 text-sm">${subject}</span>
-                        <span class="text-[10px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-bold">ДЗ</span>
-                    </div>
-                    <p class="text-sm text-gray-700 leading-relaxed">${item.text}</p>
-                `;
-                listContainer.appendChild(card);
-            });
-        }
-
-        // --- МАТЕРИАЛЫ ---
-        function renderMaterials(items) {
-            const list = document.getElementById('materials-list');
-            list.innerHTML = '';
-
-            if (items.length === 0) {
-                list.innerHTML = `
-                    <p class="text-center py-6 text-sm text-gray-400">Материалы по запросу не найдены.</p>
-                `;
-                return;
-            }
-
-            items.forEach(material => {
-                const card = document.createElement('div');
-                card.className = "custom-card p-4 rounded-xl border border-gray-200 flex items-center justify-between";
-                card.innerHTML = `
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center text-lg">
-                            <i class="fa-solid fa-file-pdf"></i>
+            <!-- Список улучшений -->
+            <div class="space-y-4 overflow-y-auto pr-1 mb-6 custom-scrollbar flex-1">
+                
+                <!-- Скорострельность -->
+                <div class="bg-gray-900/60 border border-gray-800 p-3 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                            <i data-lucide="gauge" class="w-6 h-6"></i>
                         </div>
                         <div>
-                            <h4 class="font-bold text-sm leading-snug">${material.name}</h4>
-                            <p class="text-xs text-gray-400">${material.subject} • ${material.size}</p>
-                            <p class="text-xs text-gray-500 mt-0.5">${material.description}</p>
+                            <div class="font-bold text-sm font-orbitron">СКОРОСТРЕЛЬНОСТЬ</div>
+                            <div class="text-[10px] text-gray-400 font-sans">Увеличивает частоту выстрелов</div>
+                            <div id="upgLvl-fireRate" class="text-xs text-orange-400 font-orbitron">Ур. 1 / 5</div>
                         </div>
                     </div>
-                    <button onclick="downloadFileAlert('${material.name}')" class="w-8 h-8 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full flex items-center justify-center transition">
-                        <i class="fa-solid fa-download text-xs"></i>
+                    <button id="upgBtn-fireRate" class="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-800 disabled:text-gray-500 font-orbitron text-xs font-bold rounded-lg transition-colors flex flex-col items-center gap-1 min-w-[70px]">
+                        <span>КУПИТЬ</span>
+                        <span class="flex items-center gap-0.5 text-[10px] text-yellow-400"><i data-lucide="gem" class="w-3 h-3 fill-current"></i> <span id="upgCost-fireRate">10</span></span>
                     </button>
-                `;
-                list.appendChild(card);
-            });
-        }
+                </div>
 
-        function filterMaterials(subject) {
-            // Обновляем активный фильтр визуально
-            document.querySelectorAll('#materials-filter button').forEach(btn => {
-                btn.className = "px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700";
-            });
-            event.target.className = "px-3 py-1 rounded-full text-xs font-medium bg-blue-500 text-white";
+                <!-- Макс. Щит -->
+                <div class="bg-gray-900/60 border border-gray-800 p-3 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                            <i data-lucide="shield" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-sm font-orbitron">ГЕНЕРАТОР ЩИТА</div>
+                            <div class="text-[10px] text-gray-400 font-sans">Увеличивает макс. прочность щита</div>
+                            <div id="upgLvl-shield" class="text-xs text-blue-400 font-orbitron">Ур. 1 / 5</div>
+                        </div>
+                    </div>
+                    <button id="upgBtn-shield" class="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-800 disabled:text-gray-500 font-orbitron text-xs font-bold rounded-lg transition-colors flex flex-col items-center gap-1 min-w-[70px]">
+                        <span>КУПИТЬ</span>
+                        <span class="flex items-center gap-0.5 text-[10px] text-yellow-400"><i data-lucide="gem" class="w-3 h-3 fill-current"></i> <span id="upgCost-shield">15</span></span>
+                    </button>
+                </div>
 
-            if (subject === 'Все') {
-                renderMaterials(MOCK_DATA.materials);
-            } else {
-                const filtered = MOCK_DATA.materials.filter(m => m.subject === subject);
-                renderMaterials(filtered);
+                <!-- Урон оружия -->
+                <div class="bg-gray-900/60 border border-gray-800 p-3 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
+                            <i data-lucide="swords" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-sm font-orbitron">ПЛАЗМЕННЫЙ ЗАРЯД</div>
+                            <div class="text-[10px] text-gray-400 font-sans">Увеличивает урон от лазеров</div>
+                            <div id="upgLvl-damage" class="text-xs text-red-400 font-orbitron">Ур. 1 / 5</div>
+                        </div>
+                    </div>
+                    <button id="upgBtn-damage" class="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-800 disabled:text-gray-500 font-orbitron text-xs font-bold rounded-lg transition-colors flex flex-col items-center gap-1 min-w-[70px]">
+                        <span>КУПИТЬ</span>
+                        <span class="flex items-center gap-0.5 text-[10px] text-yellow-400"><i data-lucide="gem" class="w-3 h-3 fill-current"></i> <span id="upgCost-damage">20</span></span>
+                    </button>
+                </div>
+
+                <!-- Двойной выстрел -->
+                <div class="bg-gray-900/60 border border-gray-800 p-3 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                            <i data-lucide="columns" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-sm font-orbitron">СПАРЕННЫЕ ПУШКИ</div>
+                            <div class="text-[10px] text-gray-400 font-sans">Стрельба двумя снарядами параллельно</div>
+                            <div id="upgLvl-doubleShot" class="text-xs text-purple-400 font-orbitron">Ур. 0 / 1</div>
+                        </div>
+                    </div>
+                    <button id="upgBtn-doubleShot" class="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-800 disabled:text-gray-500 font-orbitron text-xs font-bold rounded-lg transition-colors flex flex-col items-center gap-1 min-w-[70px]">
+                        <span>КУПИТЬ</span>
+                        <span class="flex items-center gap-0.5 text-[10px] text-yellow-400"><i data-lucide="gem" class="w-3 h-3 fill-current"></i> <span id="upgCost-doubleShot">50</span></span>
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Кнопка Назад -->
+            <button id="btnCloseUpgrades" class="w-full py-3 bg-purple-600 hover:bg-purple-500 font-orbitron font-bold rounded-xl transition-all">
+                ВЕРНУТЬСЯ В МЕНЮ
+            </button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН: ИГРА ОКОНЧЕНА -->
+    <div id="gameOverScreen" class="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 z-20 hidden">
+        <div class="text-center max-w-sm w-full bg-gray-950 border border-red-500/30 p-8 rounded-2xl">
+            <div class="w-16 h-16 bg-red-500/10 border border-red-500/30 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                <i data-lucide="skull" class="w-8 h-8"></i>
+            </div>
+            
+            <h3 class="text-3xl font-black text-red-500 font-orbitron tracking-widest mb-2">КОРАБЛЬ УНИЧТОЖЕН</h3>
+            <p class="text-gray-400 text-sm mb-6">Ваша миссия в этом секторе завершена.</p>
+            
+            <div class="space-y-2 mb-6 font-orbitron bg-black/50 p-4 rounded-xl border border-gray-800">
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Счёт:</span>
+                    <span id="finalScore" class="text-white font-bold">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Собрано кристаллов:</span>
+                    <span id="finalCrystals" class="text-yellow-400 font-bold">0</span>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <button id="btnRestart" class="w-full py-3 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-500 hover:to-orange-400 font-orbitron font-bold rounded-xl shadow-lg shadow-red-500/20 transition-all">
+                    ИГРАТЬ СНОВА
+                </button>
+                <button id="btnToMenu" class="w-full py-2 bg-gray-900 hover:bg-gray-800 text-gray-300 font-orbitron text-sm rounded-xl transition-all">
+                    ГЛАВНОЕ МЕНЮ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Скрипт игры -->
+    <script>
+        // Инициализация иконок
+        lucide.createIcons();
+
+        // --- Настройки звука (Web Audio API) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let isMuted = false;
+
+        function playSound(type) {
+            if (isMuted) return;
+            
+            // Проверка и возобновление контекста (требование современных браузеров)
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'laser') {
+                // Звук выстрела лазера
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'explosion') {
+                // Звук взрыва (шумоподобный спад)
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(10, now + 0.4);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } else if (type === 'hit') {
+                // Звук попадания по игроку
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(60, now + 0.1);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'gem') {
+                // Звук сбора кристалла (приятный звон)
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.setValueAtTime(900, now + 0.08);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'upgrade') {
+                // Звук покупки улучшения
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(600, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
             }
         }
 
-        // Поиск по названию
-        document.getElementById('search-materials').addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            const filtered = MOCK_DATA.materials.filter(m => m.name.toLowerCase().includes(query) || m.description.toLowerCase().includes(query));
-            renderMaterials(filtered);
+        // Элементы DOM
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const uiContainer = document.getElementById('uiContainer');
+        const topPanel = document.getElementById('topPanel');
+        const hpBar = document.getElementById('hpBar');
+        const hpText = document.getElementById('hpText');
+        const shieldBar = document.getElementById('shieldBar');
+        const shieldText = document.getElementById('shieldText');
+        const scoreVal = document.getElementById('scoreVal');
+        const crystalsVal = document.getElementById('crystalsVal');
+        const mainMenu = document.getElementById('mainMenu');
+        const upgradeMenu = document.getElementById('upgradeMenu');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const finalScore = document.getElementById('finalScore');
+        const finalCrystals = document.getElementById('finalCrystals');
+        const highScoreText = document.getElementById('highScoreText');
+        
+        // Кнопки
+        const btnStart = document.getElementById('btnStart');
+        const btnUpgrades = document.getElementById('btnUpgrades');
+        const btnCloseUpgrades = document.getElementById('btnCloseUpgrades');
+        const btnRestart = document.getElementById('btnRestart');
+        const btnToMenu = document.getElementById('btnToMenu');
+        const btnMute = document.getElementById('btnMute');
+        const muteIcon = document.getElementById('muteIcon');
+        const muteText = document.getElementById('muteText');
+        
+        // Мобильное управление
+        const mobileControls = document.getElementById('mobileControls');
+        const joystickZone = document.getElementById('joystickZone');
+        const joystickKnob = document.getElementById('joystickKnob');
+        const fireButton = document.getElementById('fireButton');
+
+        // Определение мобильного устройства
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
+        if (isMobile) {
+            mobileControls.classList.remove('hidden');
+        }
+
+        // Адаптация размера холста под экран
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- Переменные состояния игры ---
+        let gameState = 'MENU'; // MENU, PLAYING, UPGRADES, GAMEOVER
+        let score = 0;
+        let crystalsCollected = 0;
+        let totalCrystals = parseInt(localStorage.getItem('space_shooter_crystals') || '0');
+        let highScore = parseInt(localStorage.getItem('space_shooter_highscore') || '0');
+        highScoreText.textContent = highScore;
+
+        // Настройки модернизации (сохраняемые в localStorage)
+        let upgrades = {
+            fireRate: parseInt(localStorage.getItem('upg_fireRate') || '1'),     // Макс 5
+            shield: parseInt(localStorage.getItem('upg_shield') || '1'),         // Макс 5
+            damage: parseInt(localStorage.getItem('upg_damage') || '1'),         // Макс 5
+            doubleShot: parseInt(localStorage.getItem('upg_doubleShot') || '0')  // 0 или 1
+        };
+
+        const upgradeMaxLevels = { fireRate: 5, shield: 5, damage: 5, doubleShot: 1 };
+        const upgradeBaseCosts = { fireRate: 10, shield: 15, damage: 20, doubleShot: 50 };
+
+        function getUpgradeCost(type) {
+            const level = upgrades[type];
+            if (level >= upgradeMaxLevels[type]) return Infinity;
+            if (type === 'doubleShot') return upgradeBaseCosts[type];
+            return upgradeBaseCosts[type] * level;
+        }
+
+        // Ввод пользователя
+        const keys = {};
+        let touchX = null;
+        let touchY = null;
+        let isJoystickActive = false;
+        let joystickCenter = { x: 0, y: 0 };
+        let joystickVector = { x: 0, y: 0 };
+        let isFiringMobile = false;
+
+        // Отслеживание клавиатуры
+        window.addEventListener('keydown', (e) => { keys[e.code] = true; if(e.code === 'Space') e.preventDefault(); });
+        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+        // Отслеживание мыши (управление перемещением на ПК)
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height * 0.8;
+        let isMouseDown = false;
+
+        window.addEventListener('mousemove', (e) => {
+            if (gameState === 'PLAYING') {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            }
+        });
+        window.addEventListener('mousedown', (e) => { 
+            if (gameState === 'PLAYING') isMouseDown = true; 
+        });
+        window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+        // Мобильное сенсорное управление (Джойстик)
+        joystickZone.addEventListener('touchstart', (e) => {
+            isJoystickActive = true;
+            const rect = joystickZone.getBoundingClientRect();
+            joystickCenter.x = rect.left + rect.width / 2;
+            joystickCenter.y = rect.top + rect.height / 2;
+            handleJoystickMove(e.touches[0]);
+        }, { passive: true });
+
+        joystickZone.addEventListener('touchmove', (e) => {
+            if (!isJoystickActive) return;
+            handleJoystickMove(e.touches[0]);
+        }, { passive: true });
+
+        joystickZone.addEventListener('touchend', () => {
+            isJoystickActive = false;
+            joystickKnob.style.transform = `translate(0px, 0px)`;
+            joystickVector = { x: 0, y: 0 };
         });
 
-        // Имитация скачивания
-        function downloadFileAlert(fileName) {
-            tg?.showPopup({
-                title: "Скачивание файла",
-                message: `Хочешь скачать памятку «${fileName}» на своё устройство?`,
-                buttons: [
-                    { id: "ok", type: "default", text: "Да, скачать" },
-                    { id: "cancel", type: "cancel", text: "Отмена" }
-                ]
-            }, (btnId) => {
-                if (btnId === "ok") {
-                    tg?.showAlert("Файл успешно скачан в твои загрузки! 🎉");
+        function handleJoystickMove(touch) {
+            const dx = touch.clientX - joystickCenter.x;
+            const dy = touch.clientY - joystickCenter.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const maxRadius = joystickZone.clientWidth / 2;
+
+            if (distance === 0) {
+                joystickVector = { x: 0, y: 0 };
+                return;
+            }
+
+            const angle = Math.atan2(dy, dx);
+            const limitedDistance = Math.min(distance, maxRadius);
+            
+            const moveX = Math.cos(angle) * limitedDistance;
+            const moveY = Math.sin(angle) * limitedDistance;
+
+            joystickKnob.style.transform = `translate(${moveX}px, ${moveY}px)`;
+            
+            // Нормализованный вектор от -1 до 1
+            joystickVector.x = moveX / maxRadius;
+            joystickVector.y = moveY / maxRadius;
+        }
+
+        // Сенсорная кнопка стрельбы
+        fireButton.addEventListener('touchstart', (e) => {
+            isFiringMobile = true;
+            e.preventDefault();
+        });
+        fireButton.addEventListener('touchend', (e) => {
+            isFiringMobile = false;
+            e.preventDefault();
+        });
+
+        // --- Игровые классы ---
+
+        // Звёздный фон
+        class Starfield {
+            constructor() {
+                this.stars = [];
+                this.numStars = 150;
+                this.init();
+            }
+
+            init() {
+                for (let i = 0; i < this.numStars; i++) {
+                    this.stars.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        size: Math.random() * 2 + 0.5,
+                        speed: Math.random() * 3 + 0.5,
+                        color: `rgba(${Math.floor(Math.random() * 100 + 155)}, ${Math.floor(Math.random() * 100 + 155)}, 255, ${Math.random() * 0.8 + 0.2})`
+                    });
+                }
+            }
+
+            update() {
+                this.stars.forEach(star => {
+                    star.y += star.speed;
+                    // Если звезда улетела за экран, возвращаем её наверх
+                    if (star.y > canvas.height) {
+                        star.y = 0;
+                        star.x = Math.random() * canvas.width;
+                    }
+                });
+            }
+
+            draw() {
+                this.stars.forEach(star => {
+                    ctx.fillStyle = star.color;
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+        }
+
+        // Корабль игрока
+        class Player {
+            constructor() {
+                this.width = 45;
+                this.height = 45;
+                this.x = canvas.width / 2;
+                this.y = canvas.height * 0.8;
+                this.speed = 6.5;
+                
+                // Характеристики на основе улучшений
+                this.maxHp = 100;
+                this.hp = this.maxHp;
+                
+                this.maxShield = 25 + upgrades.shield * 25; // 50 до 150
+                this.shield = this.maxShield;
+                this.shieldRegen = 0.05; // Регенерация щита в секунду/кадр
+                
+                this.damage = upgrades.damage * 10; // 10 до 50
+                this.fireCooldown = 400 - (upgrades.fireRate * 60); // Кулдаун стрельбы в мс (от 340 до 100)
+                this.lastShotTime = 0;
+
+                this.tilt = 0; // Наклон при поворотах
+            }
+
+            update() {
+                let dx = 0;
+                let dy = 0;
+
+                // Управление клавиатурой / WASD
+                if (keys['ArrowLeft'] || keys['KeyA']) dx = -1;
+                if (keys['ArrowRight'] || keys['KeyD']) dx = 1;
+                if (keys['ArrowUp'] || keys['KeyW']) dy = -1;
+                if (keys['ArrowDown'] || keys['KeyS']) dy = 1;
+
+                // Управление мышью (плавное следование)
+                if (!isMobile && (mouseX !== canvas.width / 2 || mouseY !== canvas.height * 0.8)) {
+                    const targetX = mouseX;
+                    const targetY = mouseY;
+                    const diffX = targetX - this.x;
+                    const diffY = targetY - this.y;
+                    
+                    // Небольшая мёртвая зона во избежание дрожания
+                    if (Math.abs(diffX) > 5) dx = Math.sign(diffX) * Math.min(1, Math.abs(diffX) / 10);
+                    if (Math.abs(diffY) > 5) dy = Math.sign(diffY) * Math.min(1, Math.abs(diffY) / 10);
+                }
+
+                // Мобильное управление джойстиком
+                if (isMobile && isJoystickActive) {
+                    dx = joystickVector.x;
+                    dy = joystickVector.y;
+                }
+
+                // Перемещение
+                this.x += dx * this.speed;
+                this.y += dy * this.speed;
+
+                // Плавный наклон
+                this.tilt = dx * 0.3;
+
+                // Ограничение границами экрана
+                this.x = Math.max(this.width, Math.min(canvas.width - this.width, this.x));
+                this.y = Math.max(this.height, Math.min(canvas.height - this.height, this.y));
+
+                // Регенерация щитов
+                if (this.shield < this.maxShield) {
+                    this.shield = Math.min(this.maxShield, this.shield + this.shieldRegen);
+                }
+
+                // Обновление баров интерфейса
+                hpBar.style.width = `${(this.hp / this.maxHp) * 100}%`;
+                hpText.textContent = `${Math.ceil(this.hp)}/${this.maxHp}`;
+                shieldBar.style.width = `${(this.shield / this.maxShield) * 100}%`;
+                shieldText.textContent = `${Math.ceil(this.shield)}/${this.maxShield}`;
+
+                // Автоматическая стрельба при зажатой кнопке/пробеле
+                const currentTime = Date.now();
+                if ((keys['Space'] || isMouseDown || (isMobile && isFiringMobile)) && currentTime - this.lastShotTime > this.fireCooldown) {
+                    this.shoot();
+                    this.lastShotTime = currentTime;
+                }
+            }
+
+            shoot() {
+                playSound('laser');
+                if (upgrades.doubleShot === 1) {
+                    // Спаренный выстрел по бокам
+                    projectiles.push(new Projectile(this.x - 15, this.y - 15, this.damage));
+                    projectiles.push(new Projectile(this.x + 15, this.y - 15, this.damage));
+                } else {
+                    // Одиночный по центру
+                    projectiles.push(new Projectile(this.x, this.y - 20, this.damage));
+                }
+            }
+
+            takeDamage(amount) {
+                // Сначала урон принимает щит
+                if (this.shield > 0) {
+                    if (this.shield >= amount) {
+                        this.shield -= amount;
+                        amount = 0;
+                    } else {
+                        amount -= this.shield;
+                        this.shield = 0;
+                    }
+                    createShieldImpact(this.x, this.y);
+                }
+
+                if (amount > 0) {
+                    this.hp = Math.max(0, this.hp - amount);
+                    playSound('hit');
+                    createScreenShake();
+                    // Создаем обломки при попадании по корпусу
+                    createExplosion(this.x, this.y, '#ff3333', 10);
+                }
+
+                if (this.hp <= 0) {
+                    endGame();
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.tilt);
+
+                // --- Визуализация реактивного шлейфа ---
+                const thrustLength = Math.random() * 15 + 15;
+                const gradThrust = ctx.createLinearGradient(0, this.height / 2, 0, this.height / 2 + thrustLength);
+                gradThrust.addColorStop(0, '#ff9900');
+                gradThrust.addColorStop(0.5, '#ff0055');
+                gradThrust.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradThrust;
+                ctx.beginPath();
+                ctx.moveTo(-10, this.height / 2 - 5);
+                ctx.lineTo(0, this.height / 2 + thrustLength);
+                ctx.lineTo(10, this.height / 2 - 5);
+                ctx.closePath();
+                ctx.fill();
+
+                // Эффект свечения двигателя
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#00ffff';
+
+                // --- Рисование Космического корабля ---
+                // Крылья
+                ctx.fillStyle = '#4b5563'; // Темно-серый
+                ctx.beginPath();
+                ctx.moveTo(0, -10);
+                ctx.lineTo(-this.width / 2, this.height / 3);
+                ctx.lineTo(-this.width / 4, this.height / 2);
+                ctx.lineTo(this.width / 4, this.height / 2);
+                ctx.lineTo(this.width / 2, this.height / 3);
+                ctx.closePath();
+                ctx.fill();
+
+                // Корпус корабля (Истребитель)
+                const gradBody = ctx.createLinearGradient(0, -this.height/2, 0, this.height/2);
+                gradBody.addColorStop(0, '#a855f7'); // Фиолетовый неон
+                gradBody.addColorStop(1, '#3b82f6'); // Синий неон
+                ctx.fillStyle = gradBody;
+                ctx.beginPath();
+                ctx.moveTo(0, -this.height / 2); // Нос
+                ctx.lineTo(-this.width / 4, this.height / 3);
+                ctx.lineTo(0, this.height / 4);
+                ctx.lineTo(this.width / 4, this.height / 3);
+                ctx.closePath();
+                ctx.fill();
+
+                // Остекление кабины пилота
+                ctx.fillStyle = '#38bdf8'; // Светло-голубой
+                ctx.beginPath();
+                ctx.moveTo(0, -this.height / 4);
+                ctx.lineTo(-6, 0);
+                ctx.lineTo(0, this.height / 12);
+                ctx.lineTo(6, 0);
+                ctx.closePath();
+                ctx.fill();
+
+                // Дополнительное неоновое оформление крыльев
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(-this.width / 2 + 5, this.height / 3);
+                ctx.lineTo(-this.width / 4, 0);
+                ctx.moveTo(this.width / 2 - 5, this.height / 3);
+                ctx.lineTo(this.width / 4, 0);
+                ctx.stroke();
+
+                // --- Визуализация щита вокруг корабля ---
+                if (this.shield > 0) {
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = `rgba(59, 130, 246, ${this.shield / this.maxShield})`;
+                    ctx.strokeStyle = `rgba(59, 130, 246, ${0.1 + (this.shield / this.maxShield) * 0.4})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.width, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // Лазер игрока (Снаряд)
+        class Projectile {
+            constructor(x, y, damage) {
+                this.x = x;
+                this.y = y;
+                this.speed = -11;
+                this.damage = damage;
+                this.width = 4;
+                this.height = 18;
+            }
+
+            update() {
+                this.y += this.speed;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#a855f7';
+                
+                const grad = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.5, '#c084fc');
+                grad.addColorStop(1, '#a855f7');
+                
+                ctx.fillStyle = grad;
+                ctx.fillRect(this.x - this.width / 2, this.y, this.width, this.height);
+                ctx.restore();
+            }
+        }
+
+        // Враги
+        class Enemy {
+            constructor(x, type) {
+                this.x = x;
+                this.y = -50;
+                this.type = type; // 'scout' (разведчик), 'fighter' (истребитель), 'heavy' (тяжелый)
+                this.phase = Math.random() * 100; // Для синусоидального движения
+
+                switch (type) {
+                    case 'scout':
+                        this.width = 30;
+                        this.height = 30;
+                        this.speed = 4;
+                        this.hp = 15;
+                        this.maxHp = 15;
+                        this.scoreVal = 100;
+                        this.color = '#34d399'; // Зелёный
+                        break;
+                    case 'fighter':
+                        this.width = 40;
+                        this.height = 40;
+                        this.speed = 2.8;
+                        this.hp = 40;
+                        this.maxHp = 40;
+                        this.scoreVal = 250;
+                        this.color = '#fbbf24'; // Оранжевый
+                        this.lastShot = 0;
+                        this.shootInterval = 2000 + Math.random() * 1500;
+                        break;
+                    case 'heavy':
+                        this.width = 65;
+                        this.height = 55;
+                        this.speed = 1.5;
+                        this.hp = 120;
+                        this.maxHp = 120;
+                        this.scoreVal = 600;
+                        this.color = '#f87171'; // Красный
+                        this.lastShot = 0;
+                        this.shootInterval = 3000;
+                        break;
+                }
+            }
+
+            update() {
+                this.y += this.speed;
+
+                // Уникальное поведение движения
+                if (this.type === 'scout') {
+                    // Зигзагообразное движение
+                    this.x += Math.sin(this.phase + this.y / 30) * 2;
+                } else if (this.type === 'fighter') {
+                    // Стрельба врага по таймеру
+                    const now = Date.now();
+                    if (now - this.lastShot > this.shootInterval && this.y > 50 && this.y < canvas.height / 2) {
+                        enemyProjectiles.push(new EnemyProjectile(this.x, this.y + this.height/2, 2, 5));
+                        this.lastShot = now;
+                    }
+                } else if (this.type === 'heavy') {
+                    // Плавное качание влево-вправо
+                    this.x += Math.cos(this.phase + this.y / 50) * 0.8;
+                    
+                    // Стрельба веером
+                    const now = Date.now();
+                    if (now - this.lastShot > this.shootInterval && this.y > 50 && this.y < canvas.height / 2.2) {
+                        enemyProjectiles.push(new EnemyProjectile(this.x, this.y + this.height/2, 0, 7)); // прямо
+                        enemyProjectiles.push(new EnemyProjectile(this.x, this.y + this.height/2, -1.5, 6)); // влево
+                        enemyProjectiles.push(new EnemyProjectile(this.x, this.y + this.height/2, 1.5, 6)); // вправо
+                        this.lastShot = now;
+                    }
+                }
+
+                // Удержание в границах экрана по бокам
+                this.x = Math.max(this.width, Math.min(canvas.width - this.width, this.x));
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+
+                // Индикатор здоровья врага над ним (если ранен)
+                if (this.hp < this.maxHp) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    ctx.fillRect(-20, -this.height/2 - 10, 40, 5);
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(-20, -this.height/2 - 10, (this.hp / this.maxHp) * 40, 5);
+                }
+
+                // Отрисовка разных типов кораблей
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+
+                if (this.type === 'scout') {
+                    // Легкий треугольный разведывательный корабль
+                    ctx.moveTo(0, this.height / 2);
+                    ctx.lineTo(-this.width / 2, -this.height / 2);
+                    ctx.lineTo(0, -this.height / 4);
+                    ctx.lineTo(this.width / 2, -this.height / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Ядро двигателя
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(0, -5, 4, 0, Math.PI*2);
+                    ctx.fill();
+                } 
+                else if (this.type === 'fighter') {
+                    // Истребитель с крыльями вперед
+                    ctx.moveTo(0, this.height / 2); // нос
+                    ctx.lineTo(-this.width / 2, -this.height / 6);
+                    ctx.lineTo(-this.width / 3, -this.height / 2);
+                    ctx.lineTo(0, -this.height / 6);
+                    ctx.lineTo(this.width / 3, -this.height / 2);
+                    ctx.lineTo(this.width / 2, -this.height / 6);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Неоновые линии
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(-10, 0);
+                    ctx.lineTo(10, 0);
+                    ctx.stroke();
+                } 
+                else if (this.type === 'heavy') {
+                    // Огромный тяжелый крейсер
+                    ctx.moveTo(0, this.height / 2);
+                    ctx.lineTo(-this.width / 2, this.height / 4);
+                    ctx.lineTo(-this.width / 2.5, -this.height / 2);
+                    ctx.lineTo(-this.width / 6, -this.height / 3);
+                    ctx.lineTo(this.width / 6, -this.height / 3);
+                    ctx.lineTo(this.width / 2.5, -this.height / 2);
+                    ctx.lineTo(this.width / 2, this.height / 4);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Дополнительный рельеф брони
+                    ctx.fillStyle = '#450a0a'; // Темно-темно красный
+                    ctx.beginPath();
+                    ctx.moveTo(-this.width/4, -5);
+                    ctx.lineTo(0, this.height/4);
+                    ctx.lineTo(this.width/4, -5);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Глаза/Огни орудий
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(-this.width/4, 5, 4, 4);
+                    ctx.fillRect(this.width/4 - 4, 5, 4, 4);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // Вражеский снаряд
+        class EnemyProjectile {
+            constructor(x, y, dx, speed) {
+                this.x = x;
+                this.y = y;
+                this.dx = dx;
+                this.speed = speed;
+                this.width = 6;
+                this.height = 12;
+                this.damage = 15;
+            }
+
+            update() {
+                this.y += this.speed;
+                this.x += this.dx;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#ef4444';
+                ctx.fillStyle = '#f87171';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Кристаллы (собираемые бонусы)
+        class Crystal {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 12;
+                this.speedY = 1.5;
+                this.speedX = (Math.random() - 0.5) * 1; // Небольшой разлет
+                this.phase = Math.random() * 100;
+            }
+
+            update() {
+                this.y += this.speedY;
+                this.x += this.speedX;
+                
+                // Притяжение к игроку, если он близко (магнитный эффект)
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 150) {
+                    this.x += (dx / dist) * 4.5;
+                    this.y += (dy / dist) * 4.5;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.phase + Date.now() * 0.003);
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#fbbf24';
+                
+                ctx.fillStyle = '#f59e0b'; // Ромбик кристалла
+                ctx.beginPath();
+                ctx.moveTo(0, -this.size / 2);
+                ctx.lineTo(this.size / 2, 0);
+                ctx.lineTo(0, this.size / 2);
+                ctx.lineTo(-this.size / 2, 0);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Сверкающий блик
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.moveTo(0, -this.size / 4);
+                ctx.lineTo(this.size / 4, 0);
+                ctx.lineTo(0, this.size / 4);
+                ctx.lineTo(-this.size / 4, 0);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        // Частицы эффектов (Взрывы, искры)
+        class Particle {
+            constructor(x, y, color, speed) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.radius = Math.random() * 3 + 1;
+                const angle = Math.random() * Math.PI * 2;
+                const spd = Math.random() * speed + 1;
+                this.vx = Math.cos(angle) * spd;
+                this.vy = Math.sin(angle) * spd;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.02 + 0.015;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Игровые списки объектов
+        let starfield = new Starfield();
+        let player = null;
+        let projectiles = [];
+        let enemies = [];
+        let enemyProjectiles = [];
+        let crystals = [];
+        let particles = [];
+
+        // Переменные спавна
+        let lastEnemySpawn = 0;
+        let enemySpawnInterval = 1800; // мс
+        let minSpawnInterval = 600;
+        let difficultyTimer = 0;
+
+        // Встряска экрана при попадании
+        let shakeIntensity = 0;
+        function createScreenShake() {
+            shakeIntensity = 10;
+        }
+
+        // --- Вспомогательные функции эффектов ---
+
+        function createExplosion(x, y, color, count = 25) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color, 6));
+            }
+        }
+
+        function createShieldImpact(x, y) {
+            for (let i = 0; i < 15; i++) {
+                particles.push(new Particle(x, y + (Math.random() - 0.5) * 30, '#60a5fa', 3));
+            }
+        }
+
+        // --- Игровой цикл ---
+
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            if (gameState !== 'PLAYING') return;
+
+            // Расчет Delta Time
+            if (!lastTime) lastTime = timestamp;
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            // Очистка экрана
+            ctx.fillStyle = '#03000a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Эффект встряски экрана
+            ctx.save();
+            if (shakeIntensity > 0) {
+                const dx = (Math.random() - 0.5) * shakeIntensity;
+                const dy = (Math.random() - 0.5) * shakeIntensity;
+                ctx.translate(dx, dy);
+                shakeIntensity *= 0.9; // затухание
+                if (shakeIntensity < 0.2) shakeIntensity = 0;
+            }
+
+            // Обновление и отрисовка космического фона
+            starfield.update();
+            starfield.draw();
+
+            // Обновление игрока
+            player.update();
+            player.draw();
+
+            // Спавн врагов
+            difficultyTimer += 1;
+            // Каждые 30 сек повышаем сложность
+            if (difficultyTimer % 1800 === 0 && enemySpawnInterval > minSpawnInterval) {
+                enemySpawnInterval = Math.max(minSpawnInterval, enemySpawnInterval - 150);
+            }
+
+            const now = Date.now();
+            if (now - lastEnemySpawn > enemySpawnInterval) {
+                spawnEnemy();
+                lastEnemySpawn = now;
+            }
+
+            // Обновление снарядов игрока
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const proj = projectiles[i];
+                proj.update();
+                proj.draw();
+
+                // Удаление при выходе за экран
+                if (proj.y < -20) {
+                    projectiles.splice(i, 1);
+                    continue;
+                }
+
+                // Проверка коллизии снаряда с врагами
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    if (
+                        proj.x > enemy.x - enemy.width / 2 &&
+                        proj.x < enemy.x + enemy.width / 2 &&
+                        proj.y > enemy.y - enemy.height / 2 &&
+                        proj.y < enemy.y + enemy.height / 2
+                    ) {
+                        // Попадание!
+                        enemy.hp -= proj.damage;
+                        createExplosion(proj.x, proj.y, enemy.color, 4);
+                        projectiles.splice(i, 1);
+
+                        if (enemy.hp <= 0) {
+                            // Враг уничтожен!
+                            playSound('explosion');
+                            createExplosion(enemy.x, enemy.y, enemy.color, 20);
+                            
+                            // Спавн кристаллов с шансом 60%
+                            if (Math.random() < 0.6) {
+                                crystals.push(new Crystal(enemy.x, enemy.y));
+                            }
+                            // Для тяжелых спавним гарантированно 2-3 кристалла
+                            if (enemy.type === 'heavy') {
+                                const count = Math.floor(Math.random() * 2) + 2;
+                                for(let c = 0; c < count; c++) {
+                                    crystals.push(new Crystal(enemy.x + (Math.random() - 0.5) * 20, enemy.y + (Math.random() - 0.5) * 20));
+                                }
+                            }
+
+                            score += enemy.scoreVal;
+                            scoreVal.textContent = String(score).padStart(6, '0');
+                            enemies.splice(j, 1);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Обновление вражеских снарядов
+            for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                const ep = enemyProjectiles[i];
+                ep.update();
+                ep.draw();
+
+                // Выход за экран
+                if (ep.y > canvas.height + 20) {
+                    enemyProjectiles.splice(i, 1);
+                    continue;
+                }
+
+                // Столкновение с игроком
+                const distToPlayer = Math.sqrt((ep.x - player.x)**2 + (ep.y - player.y)**2);
+                if (distToPlayer < player.width - 5) {
+                    player.takeDamage(ep.damage);
+                    enemyProjectiles.splice(i, 1);
+                }
+            }
+
+            // Обновление врагов
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                enemy.update();
+                enemy.draw();
+
+                // Проверка столкновения врага непосредственно с игроком (таран)
+                const dist = Math.sqrt((enemy.x - player.x) ** 2 + (enemy.y - player.y) ** 2);
+                if (dist < (enemy.width / 2 + player.width / 2)) {
+                    player.takeDamage(enemy.hp * 0.8); // Урон пропорционален прочности врага
+                    playSound('explosion');
+                    createExplosion(enemy.x, enemy.y, enemy.color, 15);
+                    enemies.splice(i, 1);
+                    continue;
+                }
+
+                // Пропуск врага за пределы экрана влечет штрафной урон по щиту/корпусу
+                if (enemy.y > canvas.height + enemy.height) {
+                    player.takeDamage(10);
+                    enemies.splice(i, 1);
+                }
+            }
+
+            // Обновление сбора кристаллов
+            for (let i = crystals.length - 1; i >= 0; i--) {
+                const cry = crystals[i];
+                cry.update();
+                cry.draw();
+
+                // Столкновение с игроком
+                const dist = Math.sqrt((cry.x - player.x) ** 2 + (cry.y - player.y) ** 2);
+                if (dist < player.width + 10) {
+                    playSound('gem');
+                    crystalsCollected++;
+                    totalCrystals++;
+                    localStorage.setItem('space_shooter_crystals', totalCrystals);
+                    crystalsVal.textContent = crystalsCollected;
+                    
+                    // Эффект поглощения кристалла
+                    for (let p = 0; p < 8; p++) {
+                        particles.push(new Particle(cry.x, cry.y, '#f59e0b', 2));
+                    }
+                    crystals.splice(i, 1);
+                    continue;
+                }
+
+                // Упущен
+                if (cry.y > canvas.height + 20) {
+                    crystals.splice(i, 1);
+                }
+            }
+
+            // Обновление частиц эффектов
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                } else {
+                    p.draw();
+                }
+            }
+
+            ctx.restore(); // Сброс трансформации встряски экрана
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Спавн врагов по уровням сложности
+        function spawnEnemy() {
+            const x = Math.random() * (canvas.width - 100) + 50;
+            
+            // Распределение типов врагов зависит от счета игрока
+            let r = Math.random();
+            let type = 'scout';
+
+            if (score > 10000) {
+                if (r < 0.4) type = 'scout';
+                else if (r < 0.8) type = 'fighter';
+                else type = 'heavy';
+            } else if (score > 3000) {
+                if (r < 0.6) type = 'scout';
+                else type = 'fighter';
+            }
+
+            enemies.push(new Enemy(x, type));
+        }
+
+        // --- Управление состояниями меню и игры ---
+
+        function startGame() {
+            // Переключение интерфейса
+            mainMenu.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            upgradeMenu.classList.add('hidden');
+            topPanel.classList.remove('opacity-0');
+
+            // Сброс игрового поля
+            score = 0;
+            crystalsCollected = 0;
+            scoreVal.textContent = "000000";
+            crystalsVal.textContent = "0";
+
+            projectiles = [];
+            enemies = [];
+            enemyProjectiles = [];
+            crystals = [];
+            particles = [];
+
+            // Восстановление/создание игрока с учетом сохранений магазина
+            player = new Player();
+            
+            gameState = 'PLAYING';
+            lastTime = 0;
+            difficultyTimer = 0;
+            enemySpawnInterval = 1800;
+
+            // Запуск цикла
+            requestAnimationFrame(gameLoop);
+        }
+
+        function endGame() {
+            gameState = 'GAMEOVER';
+            
+            // Запись рекорда
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('space_shooter_highscore', highScore);
+                highScoreText.textContent = highScore;
+            }
+
+            finalScore.textContent = score;
+            finalCrystals.textContent = crystalsCollected;
+
+            // Переключение экранов
+            topPanel.classList.add('opacity-0');
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        // --- Настройки магазина улучшений ---
+
+        function updateUpgradeUI() {
+            document.getElementById('shopCrystalsVal').textContent = totalCrystals;
+
+            const list = ['fireRate', 'shield', 'damage', 'doubleShot'];
+            list.forEach(type => {
+                const lvl = upgrades[type];
+                const max = upgradeMaxLevels[type];
+                const cost = getUpgradeCost(type);
+
+                const lvlText = document.getElementById(`upgLvl-${type}`);
+                const costText = document.getElementById(`upgCost-${type}`);
+                const btn = document.getElementById(`upgBtn-${type}`);
+
+                if (lvl >= max) {
+                    lvlText.textContent = 'МАКС. УРОВЕНЬ';
+                    costText.textContent = '—';
+                    btn.disabled = true;
+                    btn.classList.add('bg-gray-800');
+                } else {
+                    lvlText.textContent = `Ур. ${lvl} / ${max}`;
+                    costText.textContent = cost;
+                    btn.disabled = (totalCrystals < cost);
                 }
             });
         }
 
-        // --- ЛИДЕРБОРД ---
-        function renderLeaderboard() {
-            const container = document.getElementById('leaderboard');
-            container.innerHTML = '';
+        // Обработчики кнопок покупки улучшений
+        const upgButtons = ['fireRate', 'shield', 'damage', 'doubleShot'];
+        upgButtons.forEach(type => {
+            document.getElementById(`upgBtn-${type}`).addEventListener('click', () => {
+                const cost = getUpgradeCost(type);
+                if (totalCrystals >= cost && upgrades[type] < upgradeMaxLevels[type]) {
+                    totalCrystals -= cost;
+                    upgrades[type]++;
+                    
+                    // Сохранение
+                    localStorage.setItem('space_shooter_crystals', totalCrystals);
+                    localStorage.setItem(`upg_${type}`, upgrades[type]);
 
-            MOCK_DATA.leaderboard.forEach(user => {
-                const card = document.createElement('div');
-                card.className = "flex items-center justify-between py-2 border-b border-gray-100 last:border-0";
-                card.innerHTML = `
-                    <div class="flex items-center space-x-3">
-                        <span class="w-5 text-center text-sm font-bold text-gray-400">${user.rank}</span>
-                        <span class="text-xl">${user.avatar}</span>
-                        <span class="font-semibold text-sm ${user.name === 'Ты' ? 'text-blue-600 font-bold' : ''}">${user.name}</span>
-                    </div>
-                    <span class="text-sm font-bold">${user.points} 💰</span>
-                `;
-                container.appendChild(card);
+                    playSound('upgrade');
+                    updateUpgradeUI();
+                }
             });
-        }
+        });
 
-        // --- ЕЖЕДНЕВНЫЙ БОНУС ---
-        function claimDailyReward() {
-            const btn = document.getElementById('claim-btn');
-            btn.disabled = true;
-            btn.className = "bg-gray-300 text-gray-500 text-xs font-bold px-3 py-2 rounded-lg cursor-not-allowed";
-            btn.textContent = "Забрано";
+        // Навигационные кнопки
+        btnStart.addEventListener('click', startGame);
+        btnRestart.addEventListener('click', startGame);
+        
+        btnUpgrades.addEventListener('click', () => {
+            mainMenu.classList.add('hidden');
+            upgradeMenu.classList.remove('hidden');
+            updateUpgradeUI();
+        });
 
-            // Добавляем очки нашему пользователю
-            const addedPoints = Math.floor(Math.random() * 15) + 5;
-            const pointsEl = document.getElementById('user-points');
-            const currentPoints = parseInt(pointsEl.textContent);
-            pointsEl.textContent = currentPoints + addedPoints;
+        btnCloseUpgrades.addEventListener('click', () => {
+            upgradeMenu.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+        });
 
-            // Салют конфетти
-            confetti({
-                particleCount: 120,
-                spread: 70,
-                origin: { y: 0.6 }
-            });
+        btnToMenu.addEventListener('click', () => {
+            gameOverScreen.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+        });
 
-            tg?.showAlert(`Поздравляем! Ты получил бонус в размере +${addedPoints} очков! 💰`);
-        }
-
-        // --- ОТПРАВКА ДАННЫХ АДМИНОМ ---
-        function submitHW() {
-            const subject = document.getElementById('hw-subject').value;
-            const date = document.getElementById('hw-date').value;
-            const text = document.getElementById('hw-text').value;
-
-            if (!date || !text) {
-                tg?.showAlert("Пожалуйста, заполните все обязательные поля!");
-                return;
+        // Включение/выключение звука
+        btnMute.addEventListener('click', () => {
+            isMuted = !isMuted;
+            if (isMuted) {
+                muteIcon.setAttribute('data-lucide', 'volume-x');
+                muteText.textContent = "ЗВУК: ВЫКЛ";
+            } else {
+                muteIcon.setAttribute('data-lucide', 'volume-2');
+                muteText.textContent = "ЗВУК: ВКЛ";
+                playSound('gem'); // Тестовый звук при включении
             }
+            lucide.createIcons();
+        });
 
-            if (!MOCK_DATA.homework[date]) {
-                MOCK_DATA.homework[date] = {};
+        // Красивое фоновое движение звезд в меню
+        function menuLoop() {
+            if (gameState === 'MENU' || gameState === 'UPGRADES' || gameState === 'GAMEOVER') {
+                ctx.fillStyle = '#03000a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                starfield.update();
+                starfield.draw();
+                requestAnimationFrame(menuLoop);
             }
-            MOCK_DATA.homework[date][subject] = { text: text, photos: [] };
-
-            tg?.showAlert(`Задание по предмету «${subject}» на ${date} успешно сохранено!`);
-            document.getElementById('add-hw-form').reset();
-            selectDay(currentSelectedDay); // Обновляем экран
         }
-
-        function submitMaterial() {
-            const subject = document.getElementById('mat-subject').value;
-            const name = document.getElementById('mat-name').value;
-            const desc = document.getElementById('mat-desc').value || "Без описания";
-
-            if (!name) {
-                tg?.showAlert("Пожалуйста, укажите имя загружаемой памятки!");
-                return;
-            }
-
-            MOCK_DATA.materials.push({
-                name: name,
-                subject: subject,
-                description: desc,
-                size: "450 КБ"
-            });
-
-            tg?.showAlert(`Файл «${name}» успешно загружен в библиотеку материалов класса!`);
-            document.getElementById('add-material-form').reset();
-            renderMaterials(MOCK_DATA.materials); // Обновляем экран
-        }
+        
+        // Запускаем фоновые звезды для главного меню при загрузке
+        requestAnimationFrame(menuLoop);
     </script>
 </body>
 </html>
