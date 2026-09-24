@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/traffic-dashboard
-Environment="DASHBOARD_PASSWORD=ЗАМЕНИТЕ_НА_СВОЙ_ПАРОЛЬ"
+Environment="DASHBOARD_PASSWORD=CHANGE_THIS_PASSWORD"
 Environment="XRAY_LOG_PATH=/var/log/x-ui/access.log"
 ExecStart=/usr/bin/python3 /opt/traffic-dashboard/traffic_dashboard.py
 Restart=on-failure
