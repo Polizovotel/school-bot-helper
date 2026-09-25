@@ -29,11 +29,11 @@ if not DASHBOARD_PASSWORD:
 
 app = Flask(__name__)
 
-# Типичная строка лога Xray:
-# 2026/09/24 15:32:10 [Info] from 5.44.12.31:51022 accepted tcp:instagram.com:443 [main -> direct]
+# Реальная строка лога 3x-ui:
+# 2026/09/25 12:20:50.531223 from 145.255.11.135:35273 accepted tcp:stats2.videonow.ru:443 [in-17404-tcp >> direct] email: user@gmail
 LOG_LINE_RE = re.compile(
-    r"^(?P<date>\d{4}/\d{2}/\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+"
-    r"\[[^\]]*\]\s+from\s+(?P<ip>[\d.]+):\d+\s+accepted\s+"
+    r"^(?P<date>\d{4}/\d{2}/\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})(?:\.\d+)?\s+"
+    r"(?:\[[^\]]*\]\s+)?from\s+(?P<ip>[\d.]+):\d+\s+accepted\s+"
     r"(?P<proto>tcp|udp):(?P<dest>[^\s:]+):(?P<port>\d+)"
 )
 
